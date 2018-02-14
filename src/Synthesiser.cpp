@@ -141,6 +141,18 @@ static const std::string getOpContextName(const RamRelation& rel) {
     return getRelationName(rel) + "_op_ctxt";
 }
 
+/** Frequency profiling of searches */
+std::map<std::pair<std::string, SearchColumns>, unsigned> idxMap;
+unsigned lookupFreqIdx(const std::string &rel, SearchColumns c) {
+    static unsigned ctr;
+    auto pos = idxMap.find(std::make_pair(rel,c)); 
+    if (pos == idxMap.end()) { 
+        return idxMap[std::make_pair(rel,c)] = ctr++;
+    } else {
+        return idxMap[std::make_pair(rel,c)];
+    } 
+}
+
 class IndexMap {
     typedef std::map<RamRelation, AutoIndex> data_t;
     typedef typename data_t::iterator iterator;
@@ -157,6 +169,7 @@ public:
         auto pos = data.find(rel);
         return (pos != data.end()) ? pos->second : empty;
     }
+
 
     iterator begin() {
         return data.begin();
@@ -670,6 +683,7 @@ public:
         } else {
             out << "for(const auto& env" << level << " : range) {\n";
         }
+        out << "freqs[" << lookupFreqIdx(relName,keys) << "]++;\n";
         visitSearch(scan, out);
         out << "}\n";
         PRINT_END_COMMENT(out);
@@ -779,6 +793,7 @@ public:
 
         // aggregate result
         out << "for(const auto& cur : range) {\n";
+        out << "freqs[" << lookupFreqIdx(relName,keys) << "]++;\n";
 
         // create aggregation code
         if (aggregate.getFunction() == RamAggregate::COUNT) {
@@ -996,6 +1011,10 @@ public:
         }
 
         // else we conduct a range query
+        auto keys = ne.getKey(); 
+        out << "("; 
+        out << "freqs[" << lookupFreqIdx(relName,keys) << "]++\n";
+        out << ",";
         out << relName << "->"
             << "equalRange";
         out << toIndex(ne.getKey());
@@ -1007,7 +1026,7 @@ public:
                 visit(*value, out);
             }
         });
-        out << "})," << ctxName << ").empty()";
+        out << "})," << ctxName << ").empty())";
         PRINT_END_COMMENT(out);
     }
 
@@ -1341,6 +1360,8 @@ void Synthesiser::generateCode(
     }
 
     // declare symbol table
+    os << "private:\n";
+    os << "  size_t freqs[10000];\n";
     os << "public:\n";
     os << "SymbolTable symTable;\n";
 
@@ -1563,6 +1584,14 @@ void Synthesiser::generateCode(
         os << "} catch (std::exception& e) {std::cerr << e.what();exit(1);}\n";
     };
 
+    // dump freqs
+    os << "public:\n";
+    os << "void dumpFreqs(std::ostream& out = std::cerr) {\n";
+    for(auto const &cur: idxMap) {
+       os << "\tout << \"" << cur.first.first << "," << cur.first.second << ",\"<<freqs[" << cur.second << "]<<std::endl;\n";
+    }
+    os << "}\n";  // end of dumpInputs() method
+    
     // dump inputs
     os << "public:\n";
     os << "void dumpInputs(std::ostream& out = std::cout) {\n";
@@ -1680,6 +1709,7 @@ void Synthesiser::generateCode(
     } else if (Global::config().get("provenance") == "2") {
         os << "explain(obj, true, true);\n";
     }
+    os << "obj.dumpFreqs();\n";
 
     os << "return 0;\n";
     os << "} catch(std::exception &e) { souffle::SignalHandler::instance()->error(e.what());}\n";
