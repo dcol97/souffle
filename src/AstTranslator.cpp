@@ -1091,9 +1091,10 @@ std::unique_ptr<RamStatement> AstTranslator::translateRecursiveRelation(
 
                 // reduce R to P ...
                 for (size_t k = j + 1; k < atoms.size(); k++) {
-                    if (isInSameSCC(getAtomRelation(atoms[k], program))) {
+                    const AstRelation* kRel = getAtomRelation(atoms[k], program);
+                    if (isInSameSCC(kRel) && !kRel->isEqRel()) {
                         AstAtom* cur = r1->getAtoms()[k]->clone();
-                        cur->setName(relDelta[getAtomRelation(atoms[k], program)]->getName());
+                        cur->setName(relDelta[kRel]->getName());
                         r1->addToBody(std::make_unique<AstNegation>(std::unique_ptr<AstAtom>(cur)));
                     }
                 }
