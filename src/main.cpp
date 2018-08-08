@@ -24,8 +24,8 @@
 #include "DebugReport.h"
 #include "ErrorReport.h"
 #include "Global.h"
-#include "Interpreter.h"
-#include "InterpreterInterface.h"
+// #include "Interpreter.h"
+// #include "InterpreterInterface.h"
 #include "Macro.h"
 #include "ParserDriver.h"
 #include "RamProgram.h"
@@ -380,6 +380,7 @@ int main(int argc, char** argv) {
 
     // ------- execution -------------
 
+#if 0
     /* translate AST to RAM */
     std::unique_ptr<RamTranslationUnit> ramTranslationUnit =
             AstTranslator().translateUnit(*astTranslationUnit);
@@ -407,6 +408,9 @@ int main(int argc, char** argv) {
         return 0;
     };
 
+#endif 
+
+#if 0
     if (!Global::config().has("compile") && !Global::config().has("dl-program") &&
             !Global::config().has("generate")) {
         // ------- interpreter -------------
@@ -485,6 +489,8 @@ int main(int argc, char** argv) {
             std::cerr << e.what() << std::endl;
         }
     }
+
+#endif
 
     /* Report overall run-time in verbose mode */
     if (Global::config().has("verbose")) {

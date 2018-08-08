@@ -19,10 +19,9 @@
 #include "BinaryFunctorOps.h"
 #include "RamNode.h"
 #include "RamRelation.h"
+#include "RamOperator.h"
 #include "SymbolTable.h"
 #include "TernaryFunctorOps.h"
-#include "UnaryFunctorOps.h"
-
 #include <algorithm>
 #include <array>
 #include <sstream>
@@ -48,11 +47,6 @@ public:
     /** Create clone */
     RamValue* clone() const override = 0;
 
-    /** Obtain list of child nodes */
-    std::vector<const RamNode*> getChildNodes() const override {
-        return {};
-    }
-
     /** Apply mapper */
     void apply(const RamNodeMapper& map) override {
     }
@@ -63,27 +57,27 @@ public:
  * 
  *  Assumption that all arguments are specified (not equal to nullptr) 
  */
-class RamOperator : public RamValue {
+class RamIntrinsic : public RamValue {
 private:
     /** Operation symbol */
-    RamOp operation;
+    RamOperator operation;
 
     /** Argument of unary function */
     std::vector<std::unique_ptr<RamValue>> arguments;  
 
 public:
-    RamOperator(RamOp op, std::vector<std::unique_ptr<RamValue>> args)
-            : RamValue(RN_Operator), operation(op), arguments(std::mov(args)) {}
+    RamIntrinsic(RamOperator op, std::vector<std::unique_ptr<RamValue>> args)
+            : RamValue(RN_Intrinsic), operation(op), arguments(std::move(args)) {}
 
     /** Print */
     void print(std::ostream& os) const override {
-        os << getSymbolForOp(operation) << "(";
+        os << getRamOpSymbol(operation) << "(";
         os << join(arguments, ",", [](std::ostream& out, const std::unique_ptr<RamValue>& arg) { arg->print(out); });
         os << ")";
     }
 
     /** Get operator */
-    RamOp getOperator() const {
+    RamOperator getOperator() const {
         return operation;
     }
 
@@ -95,15 +89,15 @@ public:
     /** Obtain list of child nodes */
     std::vector<const RamNode*> getChildNodes() const override {
         std::vector<const RamNode *> res; 
-        for(const auto &cur: values) {
-           res.push_back(cur);
+        for(const auto &cur: arguments) {
+           res.push_back(cur.get());
         } 
         return res;
     }
 
     /** Create clone */
-    RamPack* clone() const override {
-        RamPack* res = new RamPack({});
+    RamIntrinsic* clone() const override {
+        RamIntrinsic* res = new RamIntrinsic(getOperator(),{});
         for (auto& cur : arguments) {
             RamValue* arg = cur->clone();
             res->arguments.push_back(std::unique_ptr<RamValue>(arg));
@@ -121,8 +115,8 @@ public:
 protected:
     /** Check equality */
     bool equal(const RamNode& node) const override {
-        assert(nullptr != dynamic_cast<const RamPack*>(&node));
-        const auto& other = static_cast<const RamPack&>(node);
+        assert(nullptr != dynamic_cast<const RamIntrinsic*>(&node));
+        const auto& other = static_cast<const RamIntrinsic&>(node);
         return getOperator() == other.getOperator() && equal_targets(arguments, other.arguments);
     }
 };
@@ -186,7 +180,7 @@ protected:
     bool equal(const RamNode& node) const override {
         assert(nullptr != dynamic_cast<const RamElementAccess*>(&node));
         const RamElementAccess& other = static_cast<const RamElementAccess&>(node);
-        return getLevel() == other.getLevel() && getElement() == other.getElement() &&
+        return getIdent() == other.getIdent() && getElement() == other.getElement() &&
                getName() == other.getName();
     }
 };
@@ -200,7 +194,7 @@ class RamNumber : public RamValue {
     RamDomain constant;
 
 public:
-    RamNumber(RamDomain c) : RamValue(RN_Number, true), constant(c) {}
+    RamNumber(RamDomain c) : RamValue(RN_Number), constant(c) {}
 
     /** Get constant */
     RamDomain getConstant() const {

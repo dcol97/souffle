@@ -94,7 +94,6 @@ souffle_sources = \
               Constraints.h                             \
               GraphUtils.h                              \
               AstTranslator.cpp     AstTranslator.h     \
-              Synthesiser.cpp       Synthesiser.h       \
               RamAnalysis.h                             \
               RamCondition.h                            \
               RamNode.h                                 \
@@ -120,12 +119,6 @@ souffle_sources = \
               IODirectives.h                            \
               WriteStreamCSV.h                          \
               IOSystem.h                                \
-              Interpreter.cpp       Interpreter.h       \
-              InterpreterContext.h                      \
-              InterpreterRelation.h                     \
-              InterpreterInterface.h                    \
-              InterpreterIndex.h                        \
-              InterpreterRecords.cpp InterpreterRecords.h \
               IndexSetAnalysis.cpp   IndexSetAnalysis.h \
               ProvenanceTransformer.cpp                 \
               Global.cpp            Global.h            \
