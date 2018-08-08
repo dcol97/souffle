@@ -64,7 +64,7 @@ public:
             : RamOperation(type), nestedOperation(std::move(nested)) {}
 
     /** Print */ 
-    void print(std::ostream &os, int tabpos) const { 
+    void print(std::ostream &os, int tabpos) const override { 
         nestedOperation->print(os, tabpos + 1);
     } 
 
@@ -104,8 +104,8 @@ protected:
     std::unique_ptr<RamRelation> relation;
 
 public:
-    RamScan(std::unique_ptr<RamRelation> r, std::unique_ptr<RamOperation> nested )
-            : RamNestedOperation(RN_Scan, std::move(nested), relation(std::move(r)) {}
+    RamScan(std::unique_ptr<RamRelation> r, std::unique_ptr<RamOperation> nested)
+            : RamNestedOperation(RN_Scan, std::move(nested)), relation(std::move(r)) {}
 
     /** Get search relation */
     const RamRelation& getRelation() const {
@@ -115,13 +115,13 @@ public:
     /** Print */
     void print(std::ostream& os, int tabpos) const override {
         os << times('\t', tabpos) << "SCAN " << getRelation().getName() << "{\n";
-        RamNestedOperation::print(os, tabpos);
+        RamNestedOperation::print(os, tabpos+1);
         os << times('\t', tabpos) << "}\n";
     } 
 
     /** Obtain list of child nodes */
     std::vector<const RamNode*> getChildNodes() const override {
-        return {nestedOperation.get(), relation.get()};
+        return {&getOperation(), relation.get()};
     }
 
     /** Apply mapper */
@@ -132,8 +132,8 @@ public:
 
     /** Create clone */
     RamScan* clone() const override {
-        RamScan* res = new RamScan(std::unique_ptr<RamRelation>(getRelation()->clone()),
-                                   std::unique_ptr<RamOperation>(getNestedOperation()->clone()));
+        RamScan* res = new RamScan(std::unique_ptr<RamRelation>(relation->clone()),
+                                   std::unique_ptr<RamOperation>(getOperation().clone()));
         return res;
     }
 
@@ -158,8 +158,8 @@ class RamLookup : public RamNestedOperation {
     std::size_t arity;
 
 public:
-    RamLookup(std::unique_ptr<RamOperation> nested, std::unique_ptr<RamValue> val) 
-            : RamNestedOperation(RN_Lookup, std::move(nested)), value(std::move(val)) {}
+    RamLookup(std::unique_ptr<RamOperation> nested, std::unique_ptr<RamValue> val, size_t arity) 
+            : RamNestedOperation(RN_Lookup, std::move(nested)), value(std::move(val)), arity(arity) {}
 
     /** Get value */ 
     RamValue &getValue() const {
@@ -174,22 +174,24 @@ public:
 
     /** Print */
     void print(std::ostream& os, int tabpos) const override {
-        os << times('\t', tabpos) << "RECORD LOOKUP (" << value->print(os) << "," << arity << ")\n";
-        RamNestedOperation::print(os, tabpos);
+        os << times('\t', tabpos) << "RECORD LOOKUP (";
+        // os << value->print(os);
+        os  << "," << arity << ")\n";
+        RamNestedOperation::print(os, tabpos + 1);
         os << times('\t', tabpos) << "}\n";
     }
 
     /** Obtain list of child nodes */
     std::vector<const RamNode*> getChildNodes() const override {
-        return {nestedOperation.get(), value.get()};
+        return {&getOperation(), value.get()};
     }
 
     /** Create clone */
     RamLookup* clone() const override {
         RamLookup* res = new RamLookup(
-                std::unique_ptr<RamOperation>(getNestedOperation()->clone()),
-                std::unique_ptr<RamValue>(value->clone()), 
-                arity);
+                    std::unique_ptr<RamOperation>(getOperation().clone()), 
+                    std::unique_ptr<RamValue>(value->clone()), 
+                        arity);
         return res;
     }
 
@@ -223,7 +225,7 @@ public:
     RamAggregate(std::unique_ptr<RamOperation> nested, Function fun, std::unique_ptr<RamOperation> op)
             : RamNestedOperation(RN_Aggregate, std::move(nested)), 
               fun(fun),
-              aggOperation(std::move(rel)) { }
+              aggOperation(std::move(op)) { }
 
     /** Get aggregation function */
     Function getFunction() const {
@@ -233,24 +235,41 @@ public:
     /** Get aggregate operation */ 
     RamOperation &getOperation() const {
         ASSERT(aggOperation != nullptr); 
-        return aggOperation;
+        return *aggOperation;
     }
 
     /** Print */
     void print(std::ostream& os, int tabpos) const override {
-        os << times('\t', tabpos) << "AGGREGATE(" << value->print(os) << "," << arity << ") {\n";
-        RamNestedOperation::print(os,tabpos);
+        os << times('\t', tabpos) << "AGGREGATE ";
+        switch(fun) {
+        case MIN: 
+           os << "MIN ";
+           break;
+        case MAX: 
+           os << "MAX ";
+           break;
+        case SUM: 
+           os << "SUM ";
+           break;
+        case COUNT: 
+           os << "COUNT ";
+           break;
+        default:
+           abort(); 
+        }
+        os << "{\n";
+        RamNestedOperation::print(os,tabpos+1);
         os << times('\t', tabpos) << "}\n";
     }
 
     /** Obtain list of child nodes */
     std::vector<const RamNode*> getChildNodes() const override {
-        return {nestedOperation.get(), aggOperation.get()};
+        return {&getOperation(), aggOperation.get()};
     }
 
     /** Create clone */
     RamAggregate* clone() const override {
-        RamAggregate* res = new RamAggregate(std::unique_ptr<RamOperation>(getNestedOperation()->clone()),
+        RamAggregate* res = new RamAggregate(std::unique_ptr<RamOperation>(getOperation().clone()),
                 fun, std::unique_ptr<RamOperation>(aggOperation->clone()));
         return res;
     }
@@ -299,11 +318,14 @@ public:
 
     /** Print */
     void print(std::ostream& os, int tabpos) const override {
+        os << times('\t', tabpos) << "PROJECT (";
+        os << join(values, ",", [](std::ostream& out, const std::unique_ptr<RamValue>& arg) { arg->print(out); });
+        os << ") INTO " << relation->getName() << "\n";
     } 
 
     /** Obtain list of child nodes */
     std::vector<const RamNode*> getChildNodes() const override {
-        auto res = {relation.get();};
+        std::vector<const RamNode*> res = {relation.get()};
         for (const auto& cur : values) {
             res.push_back(cur.get());
         }
@@ -312,10 +334,11 @@ public:
 
     /** Create clone */
     RamProject* clone() const override {
-        RamProject* res = new RamProject(std::unique_ptr<RamRelation>(relation->clone()), level);
+        std::vector<std::unique_ptr<RamValue>> args;
         for (auto& cur : values) {
-            res->values.push_back(std::unique_ptr<RamValue>(cur->clone()));
+            args.push_back(std::unique_ptr<RamValue>(cur->clone()));
         }
+        RamProject* res = new RamProject(std::unique_ptr<RamRelation>(relation->clone()), args);
         return res;
     }
 
@@ -348,7 +371,10 @@ public:
     RamReturn(std::vector<std::unique_ptr<RamValue>> values): RamOperation(RN_Return), values(std::move(values)) {}
 
     /** Print */ 
-    void print(std::ostream& out, int tabpos) const override {
+    void print(std::ostream& os, int tabpos) const override {
+        os << times('\t', tabpos) << "RETURN (";
+        os << join(values, ",", [](std::ostream& out, const std::unique_ptr<RamValue>& arg) { arg->print(out); });
+        os << ")\n";
     } 
 
     /** Get values */ 
@@ -362,18 +388,26 @@ public:
         return *values[i];
     }
 
-    /** Create clone */
-    RamReturn* clone() const override {
-        auto* res = new RamReturn(level);
-        for (auto& cur : values) {
-            res->values.push_back(std::unique_ptr<RamValue>(cur->clone()));
+    /** Obtain list of child nodes */
+    std::vector<const RamNode*> getChildNodes() const override {
+        std::vector<const RamNode*> res;
+        for (const auto& cur : values) {
+            res.push_back(cur.get());
         }
         return res;
     }
 
+    /** Create clone */
+    RamReturn* clone() const override {
+        std::vector<std::unique_ptr<RamValue>> args;
+        for (const auto& cur : values) {
+            args.push_back(std::unique_ptr<RamValue>(cur->clone()));
+        }
+        return new RamReturn(args);
+    }
+
     /** Apply mapper */
     void apply(const RamNodeMapper& map) override {
-        RamOperation::apply(map);
         for (auto& cur : values) {
             cur = map(std::move(cur));
         }
