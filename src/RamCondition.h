@@ -38,9 +38,6 @@ class RamCondition : public RamNode {
 public:
     RamCondition(RamNodeType type) : RamNode(type) {}
 
-    /** Get level */
-    virtual size_t getLevel() = 0;
-
     /** Create clone */
     RamCondition* clone() const override = 0;
 };
@@ -78,11 +75,6 @@ public:
         lhs->print(os);
         os << " and ";
         rhs->print(os);
-    }
-
-    /** Get level */
-    size_t getLevel() override {
-        return std::max(lhs->getLevel(), rhs->getLevel());
     }
 
     /** Obtains list of child nodes */
@@ -136,11 +128,6 @@ public:
         lhs->print(os);
         os << " " << toBinaryConstraintSymbol(op) << " ";
         rhs->print(os);
-    }
-
-    /** Get level */
-    size_t getLevel() override {
-        return std::max(lhs->getLevel(), rhs->getLevel());
     }
 
     /** Get left-hand side */
@@ -232,17 +219,6 @@ public:
         values.push_back(std::move(v));
     }
 
-    /** Get level */
-    size_t getLevel() override {
-        size_t level = 0;
-        for (const auto& cur : values) {
-            if (cur) {
-                level = std::max(level, cur->getLevel());
-            }
-        }
-        return level;
-    }
-
     /** Print */
     void print(std::ostream& os) const override {
         os << "(" << join(values, ",",
@@ -332,11 +308,6 @@ public:
     /** Get relation */
     const RamRelation& getRelation() const {
         return *relation;
-    }
-
-    /** Get level */
-    size_t getLevel() override {
-        return 0;  // can be in the top level
     }
 
     /** Print */

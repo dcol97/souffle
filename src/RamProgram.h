@@ -20,6 +20,8 @@
 
 namespace souffle {
 
+/* Make functional the description  / construct once / read only */
+
 class RamProgram : public RamNode {
 private:
     std::unique_ptr<RamStatement> main;
