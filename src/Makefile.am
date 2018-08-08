@@ -93,7 +93,6 @@ souffle_sources = \
               BinaryConstraintOps.h                     \
               Constraints.h                             \
               GraphUtils.h                              \
-              AstTranslator.cpp     AstTranslator.h     \
               RamAnalysis.h                             \
               RamCondition.h                            \
               RamNode.h                                 \

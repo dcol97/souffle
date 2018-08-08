@@ -19,7 +19,6 @@
 #include "AstSemanticChecker.h"
 #include "AstTransforms.h"
 #include "AstTranslationUnit.h"
-#include "AstTranslator.h"
 #include "ComponentModel.h"
 #include "DebugReport.h"
 #include "ErrorReport.h"

@@ -334,12 +334,14 @@ public:
 
     /** Create clone */
     RamProject* clone() const override {
+/*
         std::vector<std::unique_ptr<RamValue>> args;
         for (auto& cur : values) {
             args.push_back(std::unique_ptr<RamValue>(cur->clone()));
         }
         RamProject* res = new RamProject(std::unique_ptr<RamRelation>(relation->clone()), args);
-        return res;
+*/
+        return nullptr;
     }
 
     /** Apply mapper */
