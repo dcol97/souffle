@@ -16,12 +16,10 @@
 
 #pragma once
 
-#include "BinaryFunctorOps.h"
 #include "RamNode.h"
 #include "RamRelation.h"
 #include "RamOperator.h"
 #include "SymbolTable.h"
-#include "TernaryFunctorOps.h"
 #include <algorithm>
 #include <array>
 #include <sstream>

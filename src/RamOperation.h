@@ -303,8 +303,8 @@ protected:
     std::vector<std::unique_ptr<RamValue>> values;
 
 public:
-    RamProject(std::unique_ptr<RamRelation> rel, std::vector<std::unique_ptr<RamValue>> values)
-            : RamOperation(RN_Project), relation(std::move(rel)), values(std::move(values)) { }
+    RamProject(std::unique_ptr<RamRelation> rel, std::vector<std::unique_ptr<RamValue>> vals)
+            : RamOperation(RN_Project), relation(std::move(rel)), values(std::move(vals)) { }
 
     /** Get relation */
     const RamRelation& getRelation() const {
@@ -334,14 +334,12 @@ public:
 
     /** Create clone */
     RamProject* clone() const override {
-/*
-        std::vector<std::unique_ptr<RamValue>> args;
+        RamProject* res = new RamProject(std::unique_ptr<RamRelation>(relation->clone()),{});
         for (auto& cur : values) {
-            args.push_back(std::unique_ptr<RamValue>(cur->clone()));
+            RamValue* val = cur->clone();
+            res->values.push_back(std::unique_ptr<RamValue>(val));
         }
-        RamProject* res = new RamProject(std::unique_ptr<RamRelation>(relation->clone()), args);
-*/
-        return nullptr;
+        return res;
     }
 
     /** Apply mapper */
@@ -370,7 +368,7 @@ protected:
     std::vector<std::unique_ptr<RamValue>> values;
 
 public:
-    RamReturn(std::vector<std::unique_ptr<RamValue>> values): RamOperation(RN_Return), values(std::move(values)) {}
+    RamReturn(std::vector<std::unique_ptr<RamValue>> val): RamOperation(RN_Return), values(std::move(val)) {}
 
     /** Print */ 
     void print(std::ostream& os, int tabpos) const override {
@@ -378,6 +376,7 @@ public:
         os << join(values, ",", [](std::ostream& out, const std::unique_ptr<RamValue>& arg) { arg->print(out); });
         os << ")\n";
     } 
+
 
     /** Get values */ 
     std::vector<RamValue*> getValues() const {
@@ -401,11 +400,12 @@ public:
 
     /** Create clone */
     RamReturn* clone() const override {
-        std::vector<std::unique_ptr<RamValue>> args;
-        for (const auto& cur : values) {
-            args.push_back(std::unique_ptr<RamValue>(cur->clone()));
+        RamReturn* res = new RamReturn({});
+        for (auto& cur : values) {
+            RamValue* val = cur->clone();
+            res->values.push_back(std::unique_ptr<RamValue>(val));
         }
-        return new RamReturn(args);
+        return res;
     }
 
     /** Apply mapper */
