@@ -45,6 +45,8 @@ enum RamNodeType {
     RN_BinaryRelation,
 
     // operations
+    RN_Operation,
+    RN_NestedOperation,
     RN_Project,
     RN_Lookup,
     RN_Scan,
