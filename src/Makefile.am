@@ -96,7 +96,7 @@ souffle_sources = \
               RamAnalysis.h                             \
               RamCondition.h                            \
               RamNode.h                                 \
-              RamOperation.cpp      RamOperation.h      \
+              RamOperation.h                            \
               RamProgram.h                              \
               RamRelation.h                             \
               RamSemanticChecker.h                      \
@@ -118,7 +118,6 @@ souffle_sources = \
               IODirectives.h                            \
               WriteStreamCSV.h                          \
               IOSystem.h                                \
-              IndexSetAnalysis.cpp   IndexSetAnalysis.h \
               ProvenanceTransformer.cpp                 \
               Global.cpp            Global.h            \
               LogStatement.h                         \
