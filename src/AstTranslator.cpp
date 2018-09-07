@@ -21,6 +21,65 @@
 
 namespace souffle {
 
+std::unique_ptr<RamValue> translateValue(const AstArgument* arg, const ValueIndex& index = ValueIndex()) {
+    class ValueTranslator : public AstVisitor<std::unique_ptr<RamValue>, const ValueIndex&> {
+    public:
+        ValueTranslator() = default;
+
+        std::unique_ptr<RamValue> visitVariable(const AstVariable& var, const ValueIndex& index) override {
+            ASSERT(index.isDefined(var) && "variable not grounded");
+            const Location& loc = index.getDefinitionPoint(var);
+            return std::make_unique<RamElementAccess>(loc.level, loc.component, loc.name);
+        }
+
+        std::unique_ptr<RamValue> visitUnnamedVariable(const AstUnnamedVariable& var, const ValueIndex& index) override {
+            return nullptr;  // utilised to identify _ values
+        }
+
+        std::unique_ptr<RamValue> visitConstant(const AstConstant& c, const ValueIndex& index) override {
+            return std::make_unique<RamNumber>(c.getIndex());
+        }
+
+        std::unique_ptr<RamValue> visitUnaryFunctor(const AstUnaryFunctor& uf, const ValueIndex& index) override {
+            return std::make_unique<RamUnaryOperator>(uf.getFunction(), translateValue(uf.getOperand(), index));
+        }
+
+        std::unique_ptr<RamValue> visitBinaryFunctor(const AstBinaryFunctor& bf, const ValueIndex& index) override {
+            return std::make_unique<RamBinaryOperator>(
+                bf.getFunction(), translateValue(bf.getLHS(), index), translateValue(bf.getRHS(), index));
+        }
+
+        std::unique_ptr<RamValue> visitTernaryFunctor(const AstTernaryFunctor& tf, const ValueIndex& index) override {
+            return std::make_unique<RamTernaryOperator>(tf.getFunction(), translateValue(tf.getArg(0), index),
+                translateValue(tf.getArg(1), index), translateValue(tf.getArg(2), index));
+        }
+
+        std::unique_ptr<RamValue> visitCounter(const AstCounter& cnt, const ValueIndex& index) override {
+            return std::make_unique<RamAutoIncrement>();
+        }
+
+        std::unique_ptr<RamValue> visitRecordInit(const AstRecordInit& init, const ValueIndex& index) override {
+            std::vector<std::unique_ptr<RamValue>> values;
+            for (const auto& cur : init.getArguments()) {
+                values.push_back(translateValue(cur, index));
+            }
+            return std::make_unique<RamPack>(std::move(values));
+        }
+
+        std::unique_ptr<RamValue> visitAggregator(const AstAggregator& agg, const ValueIndex& index) override {
+            // here we look up the location the aggregation result gets bound
+            auto loc = index.getAggregatorLocation(agg);
+            return std::make_unique<RamElementAccess>(loc.level, loc.component, loc.name);
+        }
+
+        std::unique_ptr<RamValue> visitSubroutineArgument(const AstSubroutineArgument& subArg, const ValueIndex& index) override {
+            return std::make_unique<RamArgument>(subArg.getNumber());
+        }
+    };
+
+    return ValueTranslator()(*arg, index);
+}
+
 /** Translate AST to a RAM program  */
 std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslationUnit& translationUnit) {
     // obtain type environment from analysis
