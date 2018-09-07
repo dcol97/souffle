@@ -40,6 +40,7 @@ std::unique_ptr<RamValue> translateValue(const AstArgument* arg, const ValueInde
             return std::make_unique<RamNumber>(c.getIndex());
         }
 
+        /* TODO: Visitors for n-ary functors, see **RamIntrinsic**.
         std::unique_ptr<RamValue> visitUnaryFunctor(const AstUnaryFunctor& uf, const ValueIndex& index) override {
             return std::make_unique<RamUnaryOperator>(uf.getFunction(), translateValue(uf.getOperand(), index));
         }
@@ -57,6 +58,7 @@ std::unique_ptr<RamValue> translateValue(const AstArgument* arg, const ValueInde
         std::unique_ptr<RamValue> visitCounter(const AstCounter& cnt, const ValueIndex& index) override {
             return std::make_unique<RamAutoIncrement>();
         }
+        */
 
         std::unique_ptr<RamValue> visitRecordInit(const AstRecordInit& init, const ValueIndex& index) override {
             std::vector<std::unique_ptr<RamValue>> values;
