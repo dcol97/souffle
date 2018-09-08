@@ -79,6 +79,7 @@ souffle_sources = \
               AstVisitor.h                              \
               AstAnalysis.h                             \
               AstTransformer.cpp    AstTransformer.h    \
+              AstTranslator.cpp     AstTranslator.h     \
               AstTranslationUnit.h  ErrorReport.h       \
               DebugReport.cpp       DebugReport.h       \
               ComponentModel.cpp    ComponentModel.h    \

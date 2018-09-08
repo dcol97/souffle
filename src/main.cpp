@@ -19,6 +19,7 @@
 #include "AstSemanticChecker.h"
 #include "AstTransforms.h"
 #include "AstTranslationUnit.h"
+#include "AstTranslator.h"
 #include "ComponentModel.h"
 #include "DebugReport.h"
 #include "ErrorReport.h"
@@ -379,10 +380,10 @@ int main(int argc, char** argv) {
 
     // ------- execution -------------
 
-#if 0
     /* translate AST to RAM */
     std::unique_ptr<RamTranslationUnit> ramTranslationUnit =
             AstTranslator().translateUnit(*astTranslationUnit);
+#if 0
 
     std::vector<std::unique_ptr<RamTransformer>> ramTransforms;
     ramTransforms.push_back(std::make_unique<RamSemanticChecker>());
