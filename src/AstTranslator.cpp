@@ -16,12 +16,75 @@
 
 #include "Global.h"
 #include "AstTranslator.h"
+#include "AstVisitor.h"
+#include "LogStatement.h"
 #include <iostream>
 #include <fstream>
 
 namespace souffle {
 
-std::unique_ptr<RamValue> translateValue(const AstArgument* arg, const ValueIndex& index = ValueIndex()) {
+	SymbolMask getSymbolMask(const AstRelation& rel, const TypeEnvironment& typeEnv) {
+    auto arity = rel.getArity();
+    SymbolMask res(arity);
+    for (size_t i = 0; i < arity; i++) {
+        res.setSymbol(i, isSymbolType(typeEnv.getType(rel.getAttribute(i)->getTypeName())));
+    }
+    return res;
+}
+
+	/* utility for appending statements */
+static void appendStmt(std::unique_ptr<RamStatement>& stmtList, std::unique_ptr<RamStatement> stmt) {
+    if (stmt) {
+        if (stmtList) {
+            RamSequence* stmtSeq;
+            if ((stmtSeq = dynamic_cast<RamSequence*>(stmtList.get()))) {
+                stmtSeq->add(std::move(stmt));
+            } else {
+                stmtList = std::make_unique<RamSequence>(std::move(stmtList), std::move(stmt));
+            }
+        } else {
+            stmtList = std::move(stmt);
+        }
+    }
+};
+
+
+	/**
+ * Converts the given relation identifier into a relation name.
+ */
+std::string getRelationName(const AstRelationIdentifier& id) {
+    return toString(join(id.getNames(), "-"));
+}
+
+std::unique_ptr<RamRelation> getRamRelation(const AstRelation* rel, const TypeEnvironment* typeEnv,
+        std::string name, size_t arity, const bool istemp = false, const bool hashset = false) {
+    // avoid name conflicts for temporary identifiers
+    if (istemp) {
+        name.insert(0, "@");
+    }
+
+    if (!rel) {
+        return std::make_unique<RamRelation>(name, arity, istemp, hashset);
+    }
+
+    assert(arity == rel->getArity());
+    std::vector<std::string> attributeNames;
+    std::vector<std::string> attributeTypeQualifiers;
+    for (unsigned int i = 0; i < arity; i++) {
+        attributeNames.push_back(rel->getAttribute(i)->getAttributeName());
+        if (typeEnv) {
+            attributeTypeQualifiers.push_back(
+                    getTypeQualifier(typeEnv->getType(rel->getAttribute(i)->getTypeName())));
+        }
+    }
+
+    return std::make_unique<RamRelation>(name, arity, attributeNames, attributeTypeQualifiers,
+            getSymbolMask(*rel, *typeEnv), rel->isInput(), rel->isComputed(), rel->isOutput(), rel->isBTree(),
+            rel->isRbtset(), rel->isHashset(), rel->isBrie(), rel->isEqRel(), istemp);
+}
+
+std::unique_ptr<RamValue> AstTranslator::translateValue(const AstArgument* arg) {
+#if 0
     class ValueTranslator : public AstVisitor<std::unique_ptr<RamValue>, const ValueIndex&> {
     public:
         ValueTranslator() = default;
@@ -80,6 +143,8 @@ std::unique_ptr<RamValue> translateValue(const AstArgument* arg, const ValueInde
     };
 
     return ValueTranslator()(*arg, index);
+#endif 
+    return nullptr;
 }
 
 /** Translate AST to a RAM program  */
@@ -140,6 +205,7 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
                             relation->getArity(), !relationNamePrefix.empty(), relation->isHashset()))));
         };
 
+#if 0
         // a function to load relations
         const auto& makeRamLoad = [&](const AstRelation* relation, const std::string& inputDirectory,
                 const std::string& fileExtension) {
@@ -150,6 +216,7 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
                             getInputIODirectives(
                                     relation, Global::config().get(inputDirectory), fileExtension)));
         };
+#endif
 
         // a function to print the size of relations
         const auto& makeRamPrintSize = [&](const AstRelation* relation) {
@@ -158,6 +225,7 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
                                         relation->getArity(), false, relation->isHashset()))));
         };
 
+#if 0
         // a function to store relations
         const auto& makeRamStore = [&](const AstRelation* relation, const std::string& outputDirectory,
                 const std::string& fileExtension) {
@@ -165,9 +233,9 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
                     std::make_unique<RamStore>(std::unique_ptr<RamRelation>(getRamRelation(relation, &typeEnv,
                                                        getRelationName(relation->getName()),
                                                        relation->getArity(), false, relation->isHashset())),
-                            getOutputIODirectives(relation, &typeEnv, Global::config().get(outputDirectory),
-                                    fileExtension)));
+                            getOutputIODirectives(relation, &typeEnv, Global::config().get(outputDirectory), fileExtension)));
         };
+#endif
 
         // a function to drop relations
         const auto& makeRamDrop = [&](const AstRelation* relation) {
@@ -186,11 +254,14 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
             }
         }
 
+#if 0
         // load all internal input relations from the facts dir with a .facts extension
         for (const auto& relation : internIns) {
             makeRamLoad(relation, "fact-dir", ".facts");
         }
+#endif
 
+#if 0
         // if a communication engine has been specified...
         if (Global::config().has("engine")) {
             // load all external output predecessor relations from the output dir with a .csv extension
@@ -202,6 +273,7 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
                 makeRamLoad(relation, "output-dir", ".facts");
             }
         }
+#endif
 
         // compute the relations themselves
         std::unique_ptr<RamStatement> bodyStatement =
@@ -218,6 +290,7 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
             }
         }
 
+#if 0
         // if a communication engine is enabled...
         if (Global::config().has("engine")) {
             // store all internal non-output relations with external successors to the output dir with a
@@ -231,6 +304,7 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
         for (const auto& relation : internOuts) {
             makeRamStore(relation, "output-dir", ".csv");
         }
+#endif
 
         // if provenance is not enabled...
         if (!Global::config().has("provenance")) {
@@ -272,6 +346,7 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
     // done for main prog
     std::unique_ptr<RamProgram> prog(new RamProgram(std::move(res)));
 
+#if 0
     // add subroutines for each clause
     if (Global::config().has("provenance")) {
         visitDepthFirst(translationUnit.getProgram()->getRelations(), [&](const AstClause& clause) {
@@ -288,6 +363,7 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
                     subroutineLabel, makeSubproofSubroutine(clause, translationUnit.getProgram(), typeEnv));
         });
     }
+#endif
 
     return prog;
 }

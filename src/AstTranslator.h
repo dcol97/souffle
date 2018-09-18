@@ -18,6 +18,8 @@
 
 #include "AstTranslationUnit.h"
 #include "RamTranslationUnit.h"
+#include "PrecedenceGraph.h"
+#include "AstTypeAnalysis.h"
 #include <map>
 #include <memory>
 #include <set>
@@ -35,7 +37,10 @@ public:
     std::unique_ptr<RamTranslationUnit> translateUnit(AstTranslationUnit& tu);
 
 private:
-    /** Translate to RAM program */
+    /** translate an AstValue to RamValue */
+    std::unique_ptr<RamValue> translateValue(const AstArgument* arg);
+
+    /** translate to RAM program */
     std::unique_ptr<RamProgram> translateProgram(const AstTranslationUnit& translationUnit);
 };
 
