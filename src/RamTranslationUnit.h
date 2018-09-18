@@ -102,6 +102,12 @@ public:
     const DebugReport& getDebugReport() const {
         return debugReport;
     }
+
+    void print(std::ostream &out) { 
+       if(program) {
+	       program->print(out);
+       }
+    }
 };
 
 }  // end of namespace souffle

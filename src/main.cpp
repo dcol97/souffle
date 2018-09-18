@@ -383,6 +383,8 @@ int main(int argc, char** argv) {
     /* translate AST to RAM */
     std::unique_ptr<RamTranslationUnit> ramTranslationUnit =
             AstTranslator().translateUnit(*astTranslationUnit);
+    ramTranslationUnit->print(std::cout);
+
 #if 0
 
     std::vector<std::unique_ptr<RamTransformer>> ramTransforms;
