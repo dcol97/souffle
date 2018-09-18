@@ -42,6 +42,19 @@ private:
 
     /** translate to RAM program */
     std::unique_ptr<RamProgram> translateProgram(const AstTranslationUnit& translationUnit);
+
+    /** translate non-recursive rules */
+    std::unique_ptr<RamStatement> translateNonRecursiveRelation(const AstRelation& rel,
+        const AstProgram* program, const RecursiveClauses* recursiveClauses, const TypeEnvironment& typeEnv);
+
+    /** translate recursive rules */
+    std::unique_ptr<RamStatement> translateRecursiveRelation(
+        const std::set<const AstRelation*>& scc, const AstProgram* program,
+        const RecursiveClauses* recursiveClauses, const TypeEnvironment& typeEnv);
+
+    std::unique_ptr<RamStatement> translateClause(const AstClause& clause,
+        const AstProgram* program, const TypeEnvironment* typeEnv);
+
 };
 
 }  // end of namespace souffle
