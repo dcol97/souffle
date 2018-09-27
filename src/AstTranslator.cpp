@@ -16,6 +16,7 @@
 
 #include "Global.h"
 #include "AstTranslator.h"
+#include "AstUtils.h"
 #include "AstVisitor.h"
 #include "LogStatement.h"
 #include "Util.h"
@@ -97,22 +98,23 @@ std::unique_ptr<RamRelation> getRamRelation(const AstRelation* rel, const TypeEn
 }
 
 std::unique_ptr<RamValue> AstTranslator::translateValue(const AstArgument* arg) {
-#if 0
-    class ValueTranslator : public AstVisitor<std::unique_ptr<RamValue>, const ValueIndex&> {
+    class ValueTranslator : public AstVisitor<std::unique_ptr<RamValue>> {
     public:
         ValueTranslator() = default;
 
-        std::unique_ptr<RamValue> visitVariable(const AstVariable& var, const ValueIndex& index) override {
+        /*
+        std::unique_ptr<RamValue> visitVariable(const AstVariable& var) override {
             ASSERT(index.isDefined(var) && "variable not grounded");
             const Location& loc = index.getDefinitionPoint(var);
             return std::make_unique<RamElementAccess>(loc.level, loc.component, loc.name);
         }
+        */
 
-        std::unique_ptr<RamValue> visitUnnamedVariable(const AstUnnamedVariable& var, const ValueIndex& index) override {
+        std::unique_ptr<RamValue> visitUnnamedVariable(const AstUnnamedVariable& var) override {
             return nullptr;  // utilised to identify _ values
         }
 
-        std::unique_ptr<RamValue> visitConstant(const AstConstant& c, const ValueIndex& index) override {
+        std::unique_ptr<RamValue> visitConstant(const AstConstant& c) override {
             return std::make_unique<RamNumber>(c.getIndex());
         }
 
@@ -136,35 +138,86 @@ std::unique_ptr<RamValue> AstTranslator::translateValue(const AstArgument* arg) 
         }
         */
 
-        std::unique_ptr<RamValue> visitRecordInit(const AstRecordInit& init, const ValueIndex& index) override {
+        /*
+        std::unique_ptr<RamValue> visitRecordInit(const AstRecordInit& init) override {
             std::vector<std::unique_ptr<RamValue>> values;
             for (const auto& cur : init.getArguments()) {
-                values.push_back(translateValue(cur, index));
+                values.push_back(translateValue(cur));
             }
             return std::make_unique<RamPack>(std::move(values));
         }
+        */
 
-        std::unique_ptr<RamValue> visitAggregator(const AstAggregator& agg, const ValueIndex& index) override {
+        /*
+        std::unique_ptr<RamValue> visitAggregator(const AstAggregator& agg) override {
             // here we look up the location the aggregation result gets bound
             auto loc = index.getAggregatorLocation(agg);
             return std::make_unique<RamElementAccess>(loc.level, loc.component, loc.name);
         }
+        */
 
-        std::unique_ptr<RamValue> visitSubroutineArgument(const AstSubroutineArgument& subArg, const ValueIndex& index) override {
+        std::unique_ptr<RamValue> visitSubroutineArgument(const AstSubroutineArgument& subArg) override {
             return std::make_unique<RamArgument>(subArg.getNumber());
         }
     };
 
-    return ValueTranslator()(*arg, index);
-#endif 
-    return nullptr;
+    return ValueTranslator()(*arg);
 }
 
 std::unique_ptr<RamStatement> AstTranslator::translateClause(const AstClause& clause,
         const AstProgram* program, const TypeEnvironment* typeEnv) {
-	return nullptr;
-}
+    
+    // get extract some details
+    const AstAtom& head = *clause.getHead();
 
+    // a utility to translate atoms to relations
+    auto getRelation = [&](const AstAtom* atom) {
+        return getRamRelation((program ? getAtomRelation(atom, program) : nullptr), typeEnv,
+                getRelationName(atom->getName()), atom->getArity(), false);
+    };
+    #if 0
+
+    // handle facts
+    if (clause.isFact()) {
+        // translate arguments
+        std::vector<std::unique_ptr<RamValue>> values;
+        for (auto& arg : clause.getHead()->getArguments()) {
+            values.push_back(translateValue(&*arg));
+        }
+
+        // create a fact statement
+        return std::make_unique<RamFact>(getRelation(&head), std::move(values));
+    }
+
+    // the rest should be rules
+    assert(clause.isRule());
+
+    // -- create RAM statement --
+
+    // begin with projection
+    std::unique_ptr<RamProject> project = std::make_unique<RamProject>(getRelation(&head));
+
+    for (AstArgument* arg : head.getArguments()) {
+        project->addArg(translateValue(arg));
+    }
+
+    // build up insertion call
+    std::unique_ptr<RamOperation> op = std::move(project);  // start with innermost
+
+    /* generate the final RAM Insert statement */
+    return std::make_unique<RamInsert>(std::move(op));    
+
+    // begin with projection
+    std::unique_ptr<RamProject> project = std::make_unique<RamProject>(getRelation(&head));
+
+    #endif
+
+    std::vector<std::unique_ptr<RamValue>> values;
+    std::unique_ptr<RamProject> project = std::make_unique<RamProject>(getRelation(&head));
+    //std::unique_ptr<RamFact> project = std::make_unique<RamFact>(getRelation(&head), std::move(values));
+
+    return nullptr;
+}
 
 /** generate RAM code for recursive relations in a strongly-connected component */
 std::unique_ptr<RamStatement> AstTranslator::translateRecursiveRelation(
