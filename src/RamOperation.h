@@ -349,7 +349,6 @@ public:
 
     /** Apply mapper */
     void apply(const RamNodeMapper& map) override {
-        RamOperation::apply(map);
         relation = map(std::move(relation));
         for (auto& cur : values) {
             cur = map(std::move(cur));
@@ -361,8 +360,7 @@ protected:
     bool equal(const RamNode& node) const override {
         assert(nullptr != dynamic_cast<const RamProject*>(&node));
         const auto& other = static_cast<const RamProject&>(node);
-        return RamOperation::equal(other) && 
-               getRelation() == other.getRelation() &&
+        return getRelation() == other.getRelation() &&
                equal_targets(values, other.values);
     }
 };
