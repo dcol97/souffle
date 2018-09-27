@@ -70,6 +70,97 @@ std::string getRelationName(const AstRelationIdentifier& id) {
     return toString(join(id.getNames(), "-"));
 }
 
+void makeIODirective(IODirectives& ioDirective, const AstRelation* rel, const std::string& filePath,
+        const std::string& fileExt, const bool isIntermediate) {
+    // set relation name correctly
+    ioDirective.setRelationName(getRelationName(rel->getName()));
+
+    // set a default IO type of file and a default filename if not supplied
+    if (!ioDirective.has("IO")) {
+        ioDirective.setIOType("file");
+    }
+
+    // load intermediate relations from correct files
+    if (ioDirective.getIOType() == "file") {
+        // all intermediate relations are given the default delimiter and have no headers
+        if (isIntermediate) {
+            ioDirective.set("intermediate", "true");
+            ioDirective.set("delimiter", "\t");
+            ioDirective.set("headers", "false");
+        }
+
+        // set filename by relation if not given, or if relation is intermediate
+        if (!ioDirective.has("filename") || isIntermediate) {
+            ioDirective.setFileName(ioDirective.getRelationName() + fileExt);
+        }
+
+        // if filename is not an absolute path, concat with cmd line facts directory
+        if (ioDirective.getIOType() == "file" && ioDirective.getFileName().front() != '/') {
+            ioDirective.setFileName(filePath + "/" + ioDirective.getFileName());
+        }
+    }
+}
+
+std::vector<IODirectives> getOutputIODirectives(const AstRelation* rel, const TypeEnvironment* typeEnv,
+        std::string filePath = std::string(), const std::string& fileExt = std::string()) {
+    std::vector<IODirectives> outputDirectives;
+
+    for (const auto& current : rel->getIODirectives()) {
+        if (current->isOutput()) {
+            IODirectives ioDirectives;
+            for (const auto& currentPair : current->getIODirectiveMap()) {
+                ioDirectives.set(currentPair.first, currentPair.second);
+            }
+            outputDirectives.push_back(ioDirectives);
+        }
+    }
+
+    // If stdout is requested then remove all directives from the datalog file.
+    if (Global::config().get("output-dir") == "-") {
+        outputDirectives.clear();
+        IODirectives ioDirectives;
+        ioDirectives.setIOType("stdout");
+        ioDirectives.set("headers", "true");
+        outputDirectives.push_back(ioDirectives);
+    }
+
+    if (outputDirectives.empty()) {
+        outputDirectives.emplace_back();
+    }
+
+    const std::string outputFilePath = (filePath.empty()) ? Global::config().get("output-dir") : filePath;
+    const std::string outputFileExt = (fileExt.empty()) ? ".csv" : fileExt;
+
+    const bool isIntermediate =
+            (Global::config().has("engine") && outputFilePath == Global::config().get("output-dir") &&
+                    outputFileExt == ".facts");
+
+    for (auto& ioDirective : outputDirectives) {
+        makeIODirective(ioDirective, rel, outputFilePath, outputFileExt, isIntermediate);
+
+        if (!ioDirective.has("attributeNames")) {
+            std::string delimiter("\t");
+            if (ioDirective.has("delimiter")) {
+                delimiter = ioDirective.get("delimiter");
+            }
+            std::vector<std::string> attributeNames;
+            for (unsigned int i = 0; i < rel->getArity(); i++) {
+                attributeNames.push_back(rel->getAttribute(i)->getAttributeName());
+            }
+
+            if (Global::config().has("provenance")) {
+                std::vector<std::string> originalAttributeNames(
+                        attributeNames.begin(), attributeNames.end() - 2);
+                ioDirective.set("attributeNames", toString(join(originalAttributeNames, delimiter)));
+            } else {
+                ioDirective.set("attributeNames", toString(join(attributeNames, delimiter)));
+            }
+        }
+    }
+
+    return outputDirectives;
+}
+
 std::unique_ptr<RamRelation> getRamRelation(const AstRelation* rel, const TypeEnvironment* typeEnv,
         std::string name, size_t arity, const bool istemp = false, const bool hashset = false) {
     // avoid name conflicts for temporary identifiers
@@ -556,7 +647,6 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
                                         relation->getArity(), false, relation->isHashset()))));
         };
 
-#if 0
         // a function to store relations
         const auto& makeRamStore = [&](const AstRelation* relation, const std::string& outputDirectory,
                 const std::string& fileExtension) {
@@ -566,7 +656,6 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
                                                        relation->getArity(), false, relation->isHashset())),
                             getOutputIODirectives(relation, &typeEnv, Global::config().get(outputDirectory), fileExtension)));
         };
-#endif
 
         // a function to drop relations
         const auto& makeRamDrop = [&](const AstRelation* relation) {
@@ -621,7 +710,6 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
             }
         }
 
-#if 0
         // if a communication engine is enabled...
         if (Global::config().has("engine")) {
             // store all internal non-output relations with external successors to the output dir with a
@@ -635,7 +723,6 @@ std::unique_ptr<RamProgram> AstTranslator::translateProgram(const AstTranslation
         for (const auto& relation : internOuts) {
             makeRamStore(relation, "output-dir", ".csv");
         }
-#endif
 
         // if provenance is not enabled...
         if (!Global::config().has("provenance")) {
@@ -726,7 +813,6 @@ std::unique_ptr<RamTranslationUnit> AstTranslator::translateUnit(AstTranslationU
         }
     }
     return std::make_unique<RamTranslationUnit>(std::move(ramProg), symTab, errReport, debugReport);
-   return nullptr;
 }
 
 }
