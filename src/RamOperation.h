@@ -292,6 +292,60 @@ protected:
 };
 
 /**
+ * Filter statement 
+ */
+class RamFilter : public RamNestedOperation {
+protected:
+    /** Relation */
+    std::unique_ptr<RamCondition> condition; 
+
+public:
+    RamFilter(std::unique_ptr<RamCondition> cond, std::unique_ptr<RamOperation> nested)
+              : RamNestedOperation(RN_Filter, std::move(nested)), condition(std::move(cond)) {}
+
+    /** Get relation */
+    const RamCondition& getCondition() const {
+        return *condition;
+    }
+
+    /** Print */
+    void print(std::ostream& os, int tabpos) const override {
+        os << times('\t', tabpos) << "IF ";
+        getCondition().print(os);
+        os << "{\n";
+        RamNestedOperation::print(os, tabpos+1);
+        os << times('\t', tabpos) << "}\n";
+    } 
+
+    /** Obtain list of child nodes */
+    std::vector<const RamNode*> getChildNodes() const override {
+        return {&getOperation(), condition.get()};
+    }
+
+    /** Create clone */
+    RamFilter* clone() const override {
+        RamFilter* res = new RamFilter(std::unique_ptr<RamCondition>(condition->clone()),
+                                       std::unique_ptr<RamOperation>(getOperation().clone()));
+        return res;
+    }
+
+    /** Apply mapper */
+    void apply(const RamNodeMapper& map) override {
+	RamNestedOperation::apply(map);
+        condition = map(std::move(condition));
+    }
+
+protected:
+    /** Check equality */
+    bool equal(const RamNode& node) const override {
+        assert(nullptr != dynamic_cast<const RamFilter*>(&node));
+        const auto& other = static_cast<const RamFilter&>(node);
+        return getCondition() == other.getCondition() &&
+               RamNestedOperation::equal(node);
+    }
+};
+
+/**
  * Projection 
  */
 class RamProject : public RamOperation {

@@ -51,6 +51,7 @@ enum RamNodeType {
     RN_Lookup,
     RN_Scan,
     RN_Aggregate,
+    RN_Filter,
 
     // statements
     RN_Create,

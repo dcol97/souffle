@@ -98,6 +98,7 @@ struct RamVisitor : public ram_visitor_tag {
             FORWARD(Lookup);
             FORWARD(Scan);
             FORWARD(Aggregate);
+	    FORWARD(Filter);
 
             // statements
             FORWARD(Create);
@@ -175,6 +176,7 @@ protected:
     LINK(Aggregate, NestedOperation);
     LINK(Lookup, NestedOperation);
     LINK(Scan, NestedOperation);
+    LINK(Filter, NestedOperation);
     LINK(NestedOperation, Operation);
     LINK(Intrinsic, Node);
 
