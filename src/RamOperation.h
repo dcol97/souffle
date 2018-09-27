@@ -303,13 +303,8 @@ protected:
     std::vector<std::unique_ptr<RamValue>> values;
 
 public:
-    RamProject(std::unique_ptr<RamRelation> rel)
-            : RamOperation(RN_Project), relation(std::move(rel)) { }
-
-    /** Add value for a column */
-    void addArg(std::unique_ptr<RamValue> v) {
-        values.push_back(std::move(v));
-    }
+    RamProject(std::unique_ptr<RamRelation> rel, std::vector<std::unique_ptr<RamValue>> vals)
+            : RamOperation(RN_Project), relation(std::move(rel)), values(std::move(vals)) { }
 
     /** Get relation */
     const RamRelation& getRelation() const {
@@ -339,7 +334,7 @@ public:
 
     /** Create clone */
     RamProject* clone() const override {
-        RamProject* res = new RamProject(std::unique_ptr<RamRelation>(relation->clone()));
+        RamProject* res = new RamProject(std::unique_ptr<RamRelation>(relation->clone()), {});
         for (auto& cur : values) {
             RamValue* val = cur->clone();
             res->values.push_back(std::unique_ptr<RamValue>(val));

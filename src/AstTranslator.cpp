@@ -175,7 +175,6 @@ std::unique_ptr<RamStatement> AstTranslator::translateClause(const AstClause& cl
         return getRamRelation((program ? getAtomRelation(atom, program) : nullptr), typeEnv,
                 getRelationName(atom->getName()), atom->getArity(), false);
     };
-    #if 0
 
     // handle facts
     if (clause.isFact()) {
@@ -195,28 +194,18 @@ std::unique_ptr<RamStatement> AstTranslator::translateClause(const AstClause& cl
     // -- create RAM statement --
 
     // begin with projection
-    std::unique_ptr<RamProject> project = std::make_unique<RamProject>(getRelation(&head));
-
+    std::vector<std::unique_ptr<RamValue>> values;
     for (AstArgument* arg : head.getArguments()) {
-        project->addArg(translateValue(arg));
+        values.push_back(translateValue(arg));
     }
+
+    std::unique_ptr<RamProject> project = std::make_unique<RamProject>(getRelation(&head), std::move(values));
 
     // build up insertion call
     std::unique_ptr<RamOperation> op = std::move(project);  // start with innermost
 
     /* generate the final RAM Insert statement */
-    return std::make_unique<RamInsert>(std::move(op));    
-
-    // begin with projection
-    std::unique_ptr<RamProject> project = std::make_unique<RamProject>(getRelation(&head));
-
-    #endif
-
-    std::vector<std::unique_ptr<RamValue>> values;
-    std::unique_ptr<RamProject> project = std::make_unique<RamProject>(getRelation(&head));
-    //std::unique_ptr<RamFact> project = std::make_unique<RamFact>(getRelation(&head), std::move(values));
-
-    return nullptr;
+    return std::make_unique<RamInsert>(std::move(op));
 }
 
 /** generate RAM code for recursive relations in a strongly-connected component */
