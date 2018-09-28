@@ -103,18 +103,26 @@ protected:
     /** Search relation */
     std::unique_ptr<RamRelation> relation;
 
+    /** identifier for the tuple */
+    size_t identifier; 
+
 public:
-    RamScan(std::unique_ptr<RamRelation> r, std::unique_ptr<RamOperation> nested)
-            : RamNestedOperation(RN_Scan, std::move(nested)), relation(std::move(r)) {}
+    RamScan(std::unique_ptr<RamRelation> r, size_t ident, std::unique_ptr<RamOperation> nested)
+            : RamNestedOperation(RN_Scan, std::move(nested)), identifier(ident), relation(std::move(r)) {}
 
     /** Get search relation */
     const RamRelation& getRelation() const {
         return *relation;
     }
 
+    /** Get identifier */ 
+    const size_t getIdentifier() const {
+        return identifier;
+    }
+
     /** Print */
     void print(std::ostream& os, int tabpos) const override {
-        os << times('\t', tabpos) << "SCAN " << getRelation().getName() << "{\n";
+        os << times('\t', tabpos) << "for t" << identifier << " in " << getRelation().getName() << "{\n";
         RamNestedOperation::print(os, tabpos+1);
         os << times('\t', tabpos) << "}\n";
     } 
@@ -132,7 +140,7 @@ public:
 
     /** Create clone */
     RamScan* clone() const override {
-        RamScan* res = new RamScan(std::unique_ptr<RamRelation>(relation->clone()),
+        RamScan* res = new RamScan(std::unique_ptr<RamRelation>(relation->clone()), identifier,
                                    std::unique_ptr<RamOperation>(getOperation().clone()));
         return res;
     }
@@ -143,6 +151,7 @@ protected:
         assert(nullptr != dynamic_cast<const RamScan*>(&node));
         const auto& other = static_cast<const RamScan&>(node);
         return RamNestedOperation::equal(other) && 
+               identifier == other.getIdentifier() &&
                getRelation() == other.getRelation();
     }
 };
