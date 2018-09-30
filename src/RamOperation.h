@@ -81,7 +81,6 @@ public:
 
     /** Apply mapper */
     void apply(const RamNodeMapper& map) override {
-        RamOperation::apply(map);
         nestedOperation = map(std::move(nestedOperation));
     }
 
@@ -340,7 +339,7 @@ public:
 
     /** Apply mapper */
     void apply(const RamNodeMapper& map) override {
-	RamNestedOperation::apply(map);
+        RamNestedOperation::apply(map);
         condition = map(std::move(condition));
     }
 
