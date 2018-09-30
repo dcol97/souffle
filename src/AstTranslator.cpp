@@ -188,18 +188,18 @@ std::unique_ptr<RamRelation> getRamRelation(const AstRelation* rel, const TypeEn
             rel->isRbtset(), rel->isHashset(), rel->isBrie(), rel->isEqRel(), istemp);
 }
 
-std::unique_ptr<RamValue> AstTranslator::translateValue(const AstArgument* arg) {
+std::unique_ptr<RamValue> AstTranslator::translateValue(const AstArgument* arg, const ValueIndex& index = ValueIndex()) {
     class ValueTranslator : public AstVisitor<std::unique_ptr<RamValue>> {
-    public:
-        ValueTranslator() = default;
+        const ValueIndex& index;
 
-        /*
+    public:
+        ValueTranslator(const ValueIndex& index) : index(index) {}
+
         std::unique_ptr<RamValue> visitVariable(const AstVariable& var) override {
             ASSERT(index.isDefined(var) && "variable not grounded");
             const Location& loc = index.getDefinitionPoint(var);
             return std::make_unique<RamElementAccess>(loc.level, loc.component, loc.name);
         }
-        */
 
         std::unique_ptr<RamValue> visitUnnamedVariable(const AstUnnamedVariable& var) override {
             return nullptr;  // utilised to identify _ values
@@ -252,7 +252,7 @@ std::unique_ptr<RamValue> AstTranslator::translateValue(const AstArgument* arg) 
         }
     };
 
-    return ValueTranslator()(*arg);
+    return ValueTranslator(index)(*arg);
 }
 
 std::unique_ptr<RamStatement> AstTranslator::translateClause(const AstClause& clause,
@@ -282,18 +282,165 @@ std::unique_ptr<RamStatement> AstTranslator::translateClause(const AstClause& cl
     // the rest should be rules
     assert(clause.isRule());
 
+    // -- index values in rule --
+
+    // create value index
+    ValueIndex valueIndex;
+
+    // the order of processed operations
+    std::vector<const AstNode*> op_nesting;
+
+    // Create index
+    int level = 0;
+    for (AstAtom* atom : clause.getAtoms()) {
+        // index nested variables and records
+        using arg_list = std::vector<AstArgument*>;
+        // std::map<const arg_list*, int> arg_level;
+        std::map<const AstNode*, std::unique_ptr<arg_list>> nodeArgs;
+
+        std::function<arg_list*(const AstNode*)> getArgList = [&](const AstNode* curNode) {
+            if (!nodeArgs.count(curNode)) {
+                if (auto rec = dynamic_cast<const AstRecordInit*>(curNode)) {
+                    nodeArgs.insert(std::make_pair(curNode, std::make_unique<arg_list>(rec->getArguments())));
+                } else if (auto atom = dynamic_cast<const AstAtom*>(curNode)) {
+                    nodeArgs.insert(
+                            std::make_pair(curNode, std::make_unique<arg_list>(atom->getArguments())));
+                } else {
+                    assert(false && "node type doesn't have arguments!");
+                }
+            }
+            arg_list* cur = nodeArgs[curNode].get();
+            return cur;
+        };
+
+        std::map<const arg_list*, int> arg_level;
+        nodeArgs.insert(std::make_pair(atom, std::make_unique<arg_list>(atom->getArguments())));
+        // the atom is obtained at the current level
+        arg_level[nodeArgs[atom].get()] = level;
+        op_nesting.push_back(atom);
+
+        // increment nesting level for the atom
+        level++;
+
+        // relation
+        std::unique_ptr<RamRelation> relation = getRelation(atom);
+
+        std::function<void(const AstNode*)> indexValues = [&](const AstNode* curNode) {
+            arg_list* cur = getArgList(curNode);
+            for (size_t pos = 0; pos < cur->size(); pos++) {
+                // get argument
+                auto& arg = (*cur)[pos];
+
+                // check for variable references
+                if (auto var = dynamic_cast<const AstVariable*>(arg)) {
+                    if (pos < relation->getArity()) {
+                        valueIndex.addVarReference(*var, arg_level[cur], pos, relation->getArg(pos));
+                    } else {
+                        valueIndex.addVarReference(*var, arg_level[cur], pos);
+                    }
+                }
+
+                // check for nested records
+                if (auto rec = dynamic_cast<const AstRecordInit*>(arg)) {
+                    // introduce new nesting level for unpack
+                    int unpack_level = level++;
+                    op_nesting.push_back(rec);
+                    arg_level[getArgList(rec)] = unpack_level;
+                    valueIndex.setRecordUnpackLevel(*rec, unpack_level);
+
+                    // register location of record
+                    valueIndex.setRecordDefinition(*rec, arg_level[cur], pos);
+
+                    // resolve nested components
+                    indexValues(rec);
+                }
+            }
+        };
+
+        indexValues(atom);
+    }
+
     // -- create RAM statement --
 
     // begin with projection
     std::vector<std::unique_ptr<RamValue>> values;
     for (AstArgument* arg : head.getArguments()) {
-        values.push_back(translateValue(arg));
+        values.push_back(translateValue(arg, valueIndex));
     }
 
-    std::unique_ptr<RamProject> project = std::make_unique<RamProject>(getRelation(&head), std::move(values));
+    // build up insertion call, start with innermost
+    std::unique_ptr<RamOperation> op = std::make_unique<RamProject>(getRelation(&head), std::move(values));
 
-    // build up insertion call
-    std::unique_ptr<RamOperation> op = std::move(project);  // start with innermost
+    // build operation bottom-up
+    while (!op_nesting.empty()) {
+        // get next operator
+        const AstNode* cur = op_nesting.back();
+        op_nesting.pop_back();
+
+        // get current nesting level
+        auto level = op_nesting.size();
+
+        if (const auto* atom = dynamic_cast<const AstAtom*>(cur)) {
+            std::unique_ptr<RamCondition> condition;
+
+            auto addCondition = [&](std::unique_ptr<RamCondition> c) {
+                if (condition) {
+                    condition = std::make_unique<RamAnd>(std::move(condition), std::move(c));
+                } else {
+                    condition.swap(c);
+                }
+            };
+
+            // add constraints
+            for (size_t pos = 0; pos < atom->argSize(); ++pos) {
+                if (auto* c = dynamic_cast<AstConstant*>(atom->getArgument(pos))) {
+                    addCondition(std::make_unique<RamBinaryRelation>(BinaryConstraintOp::EQ,
+                            std::make_unique<RamElementAccess>(level, pos, getRelation(atom)->getArg(pos)),
+                            std::make_unique<RamNumber>(c->getIndex())));
+                }
+            }
+
+            // add a filter
+            if (condition) {
+                op = std::make_unique<RamFilter>(std::move(condition), std::move(op));
+            }
+
+            // add a scan level
+            op = std::make_unique<RamScan>(getRelation(atom), level, std::move(op));
+        } else {
+            std::cout << "Unsupported AST node type: " << typeid(*cur).name() << "\n";
+            assert(false && "Unsupported AST node for creation of scan-level!");
+        }
+    }
+
+    /* add equivalence constraints imposed by variable binding */
+    for (const auto& cur : valueIndex.getVariableReferences()) {
+        std::unique_ptr<RamCondition> condition;
+
+        auto addCondition = [&](std::unique_ptr<RamCondition> c) {
+            if (condition) {
+                condition = std::make_unique<RamAnd>(std::move(condition), std::move(c));
+            } else {
+                condition.swap(c);
+            }
+        };
+
+        // the first appearance
+        const Location& first = *cur.second.begin();
+        // all other appearances
+        for (const Location& loc : cur.second) {
+            if (first != loc) {
+                addCondition(std::make_unique<RamBinaryRelation>(BinaryConstraintOp::EQ,
+                        std::make_unique<RamElementAccess>(first.level, first.component, first.name),
+                        std::make_unique<RamElementAccess>(loc.level, loc.component, loc.name)));
+            }
+        }
+
+        // add a filter
+        if (condition) {
+            op = std::make_unique<RamFilter>(std::move(condition), std::move(op));
+        }
+    }
 
     /* generate the final RAM Insert statement */
     return std::make_unique<RamInsert>(std::move(op));
