@@ -108,7 +108,7 @@ protected:
 
 public:
     RamScan(std::unique_ptr<RamRelation> r, size_t ident, std::unique_ptr<RamOperation> nested)
-            : RamNestedOperation(RN_Scan, std::move(nested)), identifier(ident), relation(std::move(r)) {}
+            : RamNestedOperation(RN_Scan, std::move(nested)), relation(std::move(r)), identifier(ident) {}
 
     /** Get search relation */
     const RamRelation& getRelation() const {
