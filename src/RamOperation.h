@@ -381,7 +381,7 @@ public:
     /** Print */
     void print(std::ostream& os, int tabpos) const override {
         os << times('\t', tabpos) << "PROJECT (";
-        os << join(values, ",", [](std::ostream& out, const std::unique_ptr<RamValue>& arg) { arg->print(out); });
+        os << join(values, ",", print_deref<std::unique_ptr<RamValue>>());
         os << ") INTO " << relation->getName() << "\n";
     } 
 
