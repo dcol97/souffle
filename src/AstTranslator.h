@@ -27,35 +27,16 @@
 
 namespace souffle {
 
+/** Level information */
+using OperationIdent = uint32_t;
+
+/** Element number */
+using ElementIndex = uint32_t;
+
 /**
  * The location of some value in a loop nest.
  */
-struct Location {
-    int level;         // < the loop level
-    int component;     // < the component within the tuple created in the given level
-    std::string name;  // < name of the variable
-
-    bool operator==(const Location& loc) const {
-        return level == loc.level && component == loc.component;
-    }
-
-    bool operator!=(const Location& loc) const {
-        return !(*this == loc);
-    }
-
-    bool operator<(const Location& loc) const {
-        return level < loc.level || (level == loc.level && component < loc.component);
-    }
-
-    void print(std::ostream& out) const {
-        out << "(" << level << "," << component << ")";
-    }
-
-    friend std::ostream& operator<<(std::ostream& out, const Location& loc) {
-        loc.print(out);
-        return out;
-    }
-};
+using Location = std::pair<OperationIdent, ElementIndex>;
 
 /**
  * A class indexing the location of variables and record
@@ -108,8 +89,8 @@ public:
         locs.insert(l);
     }
 
-    void addVarReference(const AstVariable& var, int level, int pos, const std::string& name = "") {
-        addVarReference(var, Location({level, pos, name}));
+    void addVarReference(const AstVariable& var, int level, int pos) {
+        addVarReference(var, std::make_pair(level, pos));
     }
 
     bool isDefined(const AstVariable& var) const {
@@ -134,8 +115,8 @@ public:
         record_definitions[&init] = l;
     }
 
-    void setRecordDefinition(const AstRecordInit& init, int level, int pos, std::string name = "") {
-        setRecordDefinition(init, Location({level, pos, std::move(name)}));
+    void setRecordDefinition(const AstRecordInit& init, int level, int pos) {
+        setRecordDefinition(init, std::make_pair(level, pos));
     }
 
     const Location& getDefinitionPoint(const AstRecordInit& init) const {
@@ -187,23 +168,6 @@ public:
     }
 
     // -- others --
-
-    bool isSomethingDefinedOn(int level) const {
-        // check for variable definitions
-        for (const auto& cur : var_references) {
-            if (cur.second.begin()->level == level) {
-                return true;
-            }
-        }
-        // check for record definitions
-        for (const auto& cur : record_definitions) {
-            if (cur.second.level == level) {
-                return true;
-            }
-        }
-        // nothing defined on this level
-        return false;
-    }
 
     void print(std::ostream& out) const {
         out << "Variables:\n\t";

@@ -198,7 +198,7 @@ std::unique_ptr<RamValue> AstTranslator::translateValue(const AstArgument* arg, 
         std::unique_ptr<RamValue> visitVariable(const AstVariable& var) override {
             ASSERT(index.isDefined(var) && "variable not grounded");
             const Location& loc = index.getDefinitionPoint(var);
-            return std::make_unique<RamElementAccess>(loc.level, loc.component, loc.name);
+            return std::make_unique<RamElementAccess>(loc);
         }
 
         std::unique_ptr<RamValue> visitUnnamedVariable(const AstUnnamedVariable& var) override {
@@ -334,7 +334,7 @@ std::unique_ptr<RamStatement> AstTranslator::translateClause(const AstClause& cl
                 // check for variable references
                 if (auto var = dynamic_cast<const AstVariable*>(arg)) {
                     if (pos < relation->getArity()) {
-                        valueIndex.addVarReference(*var, arg_level[cur], pos, relation->getArg(pos));
+                        valueIndex.addVarReference(*var, arg_level[cur], pos);
                     } else {
                         valueIndex.addVarReference(*var, arg_level[cur], pos);
                     }
@@ -395,7 +395,7 @@ std::unique_ptr<RamStatement> AstTranslator::translateClause(const AstClause& cl
             for (size_t pos = 0; pos < atom->argSize(); ++pos) {
                 if (auto* c = dynamic_cast<AstConstant*>(atom->getArgument(pos))) {
                     addCondition(std::make_unique<RamBinaryRelation>(BinaryConstraintOp::EQ,
-                            std::make_unique<RamElementAccess>(level, pos, getRelation(atom)->getArg(pos)),
+                            std::make_unique<RamElementAccess>(std::make_pair(level, pos)),
                             std::make_unique<RamNumber>(c->getIndex())));
                 }
             }
@@ -431,8 +431,8 @@ std::unique_ptr<RamStatement> AstTranslator::translateClause(const AstClause& cl
         for (const Location& loc : cur.second) {
             if (first != loc) {
                 addCondition(std::make_unique<RamBinaryRelation>(BinaryConstraintOp::EQ,
-                        std::make_unique<RamElementAccess>(first.level, first.component, first.name),
-                        std::make_unique<RamElementAccess>(loc.level, loc.component, loc.name)));
+                        std::make_unique<RamElementAccess>(first),
+                        std::make_unique<RamElementAccess>(loc)));
             }
         }
 

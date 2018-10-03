@@ -124,42 +124,27 @@ protected:
  * Access element from the current tuple in a tuple environment
  */
 class RamElementAccess : public RamValue {
+    /** TODO: Move these typedefs into a common file */
+    using OperationIdent = uint32_t;
+    using ElementIndex = uint32_t;
+    using Location = std::pair<OperationIdent, ElementIndex>;
+
 private:
-    /** Level information */
-    size_t ident;
-
-    /** Element number */
-    size_t element;
-
-    /** Name of attribute (optional) */
-    std::string name;
+    /** Level and Element information */
+    Location loc;
 
 public:
-    RamElementAccess(size_t i, size_t e, std::string n = "")
-            : RamValue(RN_ElementAccess), ident(i), element(e), name(n) {}
+    RamElementAccess(Location loc)
+            : RamValue(RN_ElementAccess), loc(loc) {}
 
     /** Print */
     void print(std::ostream& os) const override {
-        if (name.empty()) {
-            os << "env(t" << ident << ", i" << element << ")";
-        } else {
-            os << "t" << ident << "." << name;
-        }
+        os << "env(t" << loc.first << ", i" << loc.second << ")";
     }
 
-    /** Get level */
-    size_t getIdent() const {
-        return ident;
-    }
-
-    /** Get element */
-    size_t getElement() const {
-        return element;
-    }
-
-    /** Get name */
-    const std::string& getName() const {
-        return name;
+    /** Get location */
+    Location getLocation() const {
+        return loc;
     }
 
     /** Obtain list of child nodes */
@@ -169,7 +154,7 @@ public:
 
     /** Create clone */
     RamElementAccess* clone() const override {
-        RamElementAccess* res = new RamElementAccess(ident, element, name);
+        RamElementAccess* res = new RamElementAccess(loc);
         return res;
     }
 
@@ -178,8 +163,7 @@ protected:
     bool equal(const RamNode& node) const override {
         assert(nullptr != dynamic_cast<const RamElementAccess*>(&node));
         const RamElementAccess& other = static_cast<const RamElementAccess&>(node);
-        return getIdent() == other.getIdent() && getElement() == other.getElement() &&
-               getName() == other.getName();
+        return getLocation() == other.getLocation();
     }
 };
 
