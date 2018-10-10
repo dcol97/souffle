@@ -544,6 +544,8 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
             auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
             auto level = scan.getLevel();
 
+	    std::cout << rel.getName() << " " << rel.getArity() << "\n";
+
             // if this search is a full scan
             if (scan.getRangeQueryColumns() == 0) {
                 if (scan.isPureExistenceCheck()) {
@@ -555,6 +557,10 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                     // make this loop parallel
                     // partition outermost relation
                     out << "pfor(auto it = part.begin(); it<part.end(); ++it) \n";
+		    if (rel.getArity() == 0) {
+                        out << "if(" << relName << "->"
+                            << "empty())\n";
+		    }
                     out << "try{";
                     out << "for(const auto& env0 : *it) {\n";
                     visitSearch(scan, out);
@@ -562,7 +568,12 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                     out << "} catch(std::exception &e) { SignalHandler::instance()->error(e.what());}\n";
                 } else {
                     out << "for(const auto& env" << level << " : "
-                        << "*" << relName << ") {\n";
+                        << "*" << relName << ")";
+		    if (rel.getArity() == 0) {
+                        out << "if(" << relName << "->"
+                            << "empty())\n";
+		    }
+		    out << "{\n";
                     visitSearch(scan, out);
                     out << "}\n";
                 }
@@ -594,9 +605,19 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
             // if this is the parallel level
             if (scan.getLevel() == 0 && !scan.isPureExistenceCheck()) {
                 // make this loop parallel
-                out << "pfor(auto it = part.begin(); it<part.end(); ++it) { \n";
+                out << "pfor(auto it = part.begin(); it<part.end(); ++it)";
+         	if (rel.getArity() == 0) {
+                        out << "if(" << relName << "->"
+                            << "empty())\n";
+		}
+	       	out << "{ \n";
                 out << "try{";
-                out << "for(const auto& env0 : *it) {\n";
+                out << "for(const auto& env0 : *it)";
+         	if (rel.getArity() == 0) {
+                        out << "if(" << relName << "->"
+                            << "empty())\n";
+		}
+	        out << "{\n";
                 visitSearch(scan, out);
                 out << "}\n";
                 out << "} catch(std::exception &e) { SignalHandler::instance()->error(e.what());}\n";
@@ -616,7 +637,12 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                 visitSearch(scan, out);
                 out << "}\n";
             } else {
-                out << "for(const auto& env" << level << " : range) {\n";
+                out << "for(const auto& env" << level << " : range)";
+         	if (rel.getArity() == 0) {
+                        out << "if(" << relName << "->"
+                            << "empty())\n";
+		}
+	        out << "{\n";
                 visitSearch(scan, out);
                 out << "}\n";
             }
