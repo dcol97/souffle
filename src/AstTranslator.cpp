@@ -787,6 +787,8 @@ std::unique_ptr<RamStatement> AstTranslator::ClauseTranslator::translateClause(
             } else {
                 op = std::make_unique<RamScan>(translator.translateRelation(atom), level, std::move(op));
             }
+            op = std::make_unique<RamFilter>(std::make_unique<RamNegation>(std::make_unique<RamEmptinessCheck>(translator.translateRelation(atom))), std::move(op));
+
 
             // TODO: support constants in nested records!
         } else if (const auto* rec = dynamic_cast<const AstRecordInit*>(cur)) {
