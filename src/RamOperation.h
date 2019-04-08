@@ -185,13 +185,10 @@ public:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
         os << "FOR t" << getIdentifier();
-        os << " in " << getRelation().getName() << std::endl;
+        os << " IN " << getRelation().getName() << std::endl;
         RamRelationSearch::print(os, tabpos + 1);
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
-        return {nestedOperation.get(), condition.get(), relationRef.get() };
-    }
 
     RamScan* clone() const override {
         return new RamScan(std::unique_ptr<RamRelationReference>(relationRef->clone()), getIdentifier(),
@@ -199,12 +196,22 @@ public:
     }
 };
 
+/**
+ * Relation Scan
+ *
+ * Find a tuple in relation such that condition holds.
+ */
 class RamChoice : public RamRelationSearch {
 public:
     RamChoice(std::unique_ptr<RamRelationReference> rel, size_t ident, std::unique_ptr<RamCondition> cond, std::unique_ptr<RamOperation> nested,
             std::string profileText = "")
             : RamRelationSearch(RN_Scan, std::move(rel), ident, std::move(nested), std::move(profileText)), 
-              condition(cond) {}
+              condition(std::move(cond)) {}
+    
+    /** get condition */ 
+    const RamCondition &getCondition() const {
+        return condition;
+    }
 
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
@@ -214,24 +221,23 @@ public:
         RamRelationSearch::print(os, tabpos + 1);
     }
 
-    /** get condition */ 
-    const RamCondition &getCondition() const {
-        return condition;
-    }
-
     void apply(const RamNodeMapper& map) override {
         RamRelationSearch::apply(map);
         condition = map(std::move(condition));
     }
 
-    RamScan* clone() const override {
+    RamChoice* clone() const override {
         return new RamChoice(std::unique_ptr<RamRelationReference>(relationRef->clone()), getIdentifier(), getCondition(),
                 std::unique_ptr<RamOperation>(getOperation().clone()), getProfileText());
     }
 
+    std::vector<const RamNode*> getChildNodes() const override {
+        return {nestedOperation.get(), relationRef.get(), condition.get() };
+    }
+
     bool equal(const RamNode& node) const override {
-        assert(nullptr != dynamic_cast<const RamRelationSearch*>(&node));
-        const auto& other = static_cast<const RamRelationSearch&>(node);
+        assert(nullptr != dynamic_cast<const RamChoice*>(&node));
+        const auto& other = static_cast<const RamChoice&>(node);
         return RamRelationSearch::equal(other) && getCondition() == other.getCondition();
     }
 protected:
