@@ -31,4 +31,16 @@ SearchColumns RamIndexScanKeysAnalysis::getRangeQueryColumns(const RamIndexScan*
     return keys;
 }
 
+/** Get indexable columns of index choice */
+SearchColumns RamIndexScanKeysAnalysis::getRangeQueryColumns(const RamIndexChoice* choice) const {
+    SearchColumns keys = 0;
+    std::vector<RamExpression*> rangePattern = choice->getRangePattern();
+    for (std::size_t i = 0; i < rangePattern.size(); i++) {
+        if (rangePattern[i] != nullptr) {
+            keys |= (1 << i);
+        }
+    }
+    return keys;
+}
+
 }  // end of namespace souffle

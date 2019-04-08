@@ -34,6 +34,9 @@ public:
 
     /** Get indexable columns of index scan */
     SearchColumns getRangeQueryColumns(const RamIndexScan* scan) const;
+
+    /** Get indexable columns of index choice */
+    SearchColumns getRangeQueryColumns(const RamIndexChoice* scan) const;
 };
 
 }  // end of namespace souffle

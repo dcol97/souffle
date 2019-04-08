@@ -55,7 +55,7 @@ enum RamNodeType {
     RN_Scan,
     RN_Choice,
     RN_IndexScan,
-    //    RN_IndexChoice,
+    RN_IndexChoice,
     RN_Aggregate,
     RN_Filter,
 
