@@ -478,6 +478,22 @@ void Interpreter::evalOp(const RamOperation& op, const InterpreterContext& args)
             }
         }
 
+        void visitChoice(const RamChoice& choice) override {
+            // get the targeted relation
+            const InterpreterRelation& rel = interpreter.getRelation(choice.getRelation());
+
+            // use simple iterator
+            for (const RamDomain* cur : rel) {
+                ctxt[choice.getIdentifier()] = cur;
+                // check condition
+                if (interpreter.evalCond(choice.getCondition(), ctxt)) {
+                     // process nested
+                     visitSearch(choice);
+                     break;
+                }
+            }
+        }
+
         void visitIndexScan(const RamIndexScan& scan) override {
             // get the targeted relation
             const InterpreterRelation& rel = interpreter.getRelation(scan.getRelation());

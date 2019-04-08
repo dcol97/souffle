@@ -53,7 +53,9 @@ enum RamNodeType {
     RN_Project,
     RN_UnpackRecord,
     RN_Scan,
+    RN_Choice, 
     RN_IndexScan,
+    RN_IndexChoice,
     RN_Aggregate,
     RN_Filter,
 

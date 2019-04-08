@@ -145,12 +145,14 @@ public:
             : RamSearch(type, ident, std::move(nested), std::move(profileText)),
               relationRef(std::move(relRef)) {}
 
-    /** Get search relation */
     const RamRelation& getRelation() const {
         return *relationRef->get();
     }
 
-    /** Apply mapper */
+    std::vector<const RamNode*> getChildNodes() const override {
+        return {nestedOperation.get(), relationRef.get() };
+    }
+
     void apply(const RamNodeMapper& map) override {
         RamSearch::apply(map);
         relationRef = map(std::move(relationRef));
@@ -187,11 +189,53 @@ public:
         RamRelationSearch::print(os, tabpos + 1);
     }
 
-    /** Create clone */
+    std::vector<const RamNode*> getChildNodes() const override {
+        return {nestedOperation.get(), condition.get(), relationRef.get() };
+    }
+
     RamScan* clone() const override {
         return new RamScan(std::unique_ptr<RamRelationReference>(relationRef->clone()), getIdentifier(),
+                       std::unique_ptr<RamOperation>(getOperation().clone()), getProfileText());
+    }
+};
+
+class RamChoice : public RamRelationSearch {
+public:
+    RamChoice(std::unique_ptr<RamRelationReference> rel, size_t ident, std::unique_ptr<RamCondition> cond, std::unique_ptr<RamOperation> nested,
+            std::string profileText = "")
+            : RamRelationSearch(RN_Scan, std::move(rel), ident, std::move(nested), std::move(profileText)), 
+              condition(cond) {}
+
+    void print(std::ostream& os, int tabpos) const override {
+        os << times(" ", tabpos);
+        os << "CHOICE t" << getIdentifier();
+        os << " IN " << getRelation().getName();
+        os << " WHERE " << getCondition();
+        RamRelationSearch::print(os, tabpos + 1);
+    }
+
+    /** get condition */ 
+    const RamCondition &getCondition() const {
+        return condition;
+    }
+
+    void apply(const RamNodeMapper& map) override {
+        RamRelationSearch::apply(map);
+        condition = map(std::move(condition));
+    }
+
+    RamScan* clone() const override {
+        return new RamChoice(std::unique_ptr<RamRelationReference>(relationRef->clone()), getIdentifier(), getCondition(),
                 std::unique_ptr<RamOperation>(getOperation().clone()), getProfileText());
     }
+
+    bool equal(const RamNode& node) const override {
+        assert(nullptr != dynamic_cast<const RamRelationSearch*>(&node));
+        const auto& other = static_cast<const RamRelationSearch&>(node);
+        return RamRelationSearch::equal(other) && getCondition() == other.getCondition();
+    }
+protected:
+    std::unique_ptr<RamCondition> condition; 
 };
 
 /**
