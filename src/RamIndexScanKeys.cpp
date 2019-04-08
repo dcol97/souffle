@@ -21,20 +21,17 @@ namespace souffle {
 
 /** Get indexable columns of index scan */
 SearchColumns RamIndexScanKeysAnalysis::getRangeQueryColumns(const RamIndexScan* scan) const {
-    SearchColumns keys = 0;
-    std::vector<RamExpression*> rangePattern = scan->getRangePattern();
-    for (std::size_t i = 0; i < rangePattern.size(); i++) {
-        if (rangePattern[i] != nullptr) {
-            keys |= (1 << i);
-        }
-    }
-    return keys;
+    return getRangeQueryColumnsHelper(scan->getRangePattern());
 }
 
 /** Get indexable columns of index choice */
 SearchColumns RamIndexScanKeysAnalysis::getRangeQueryColumns(const RamIndexChoice* choice) const {
+    return getRangeQueryColumnsHelper(choice->getRangePattern());
+}
+
+SearchColumns RamIndexScanKeysAnalysis::getRangeQueryColumnsHelper(
+        const std::vector<RamExpression*> rangePattern) const {
     SearchColumns keys = 0;
-    std::vector<RamExpression*> rangePattern = choice->getRangePattern();
     for (std::size_t i = 0; i < rangePattern.size(); i++) {
         if (rangePattern[i] != nullptr) {
             keys |= (1 << i);
