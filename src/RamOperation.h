@@ -197,7 +197,7 @@ public:
 };
 
 /**
- * Relation Scan
+ * Relation Choice
  *
  * Find a tuple in relation such that condition holds.
  */
@@ -210,7 +210,7 @@ public:
     
     /** get condition */ 
     const RamCondition &getCondition() const {
-        return condition;
+        return *condition;
     }
 
     void print(std::ostream& os, int tabpos) const override {
@@ -227,7 +227,7 @@ public:
     }
 
     RamChoice* clone() const override {
-        return new RamChoice(std::unique_ptr<RamRelationReference>(relationRef->clone()), getIdentifier(), getCondition(),
+        return new RamChoice(std::unique_ptr<RamRelationReference>(relationRef->clone()), getIdentifier(), std::unique_ptr<RamCondition>(condition->clone()),
                 std::unique_ptr<RamOperation>(getOperation().clone()), getProfileText());
     }
 
