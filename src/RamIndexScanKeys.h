@@ -38,7 +38,7 @@ public:
     /** Get indexable columns of index choice */
     SearchColumns getRangeQueryColumns(const RamIndexChoice* scan) const;
 
-    SearchColumns getRangeQueryColumnsHelper(const std::vector<RamExpression*> rangePattern) const;
+    SearchColumns getRangeQueryColumnsHelper(const std::vector<RamExpression*>& rangePattern) const;
 };
 
 }  // end of namespace souffle

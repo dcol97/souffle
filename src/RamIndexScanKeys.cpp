@@ -30,7 +30,7 @@ SearchColumns RamIndexScanKeysAnalysis::getRangeQueryColumns(const RamIndexChoic
 }
 
 SearchColumns RamIndexScanKeysAnalysis::getRangeQueryColumnsHelper(
-        const std::vector<RamExpression*> rangePattern) const {
+        const std::vector<RamExpression*>& rangePattern) const {
     SearchColumns keys = 0;
     for (std::size_t i = 0; i < rangePattern.size(); i++) {
         if (rangePattern[i] != nullptr) {
