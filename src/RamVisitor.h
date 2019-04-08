@@ -103,7 +103,7 @@ struct RamVisitor : public ram_visitor_tag {
             FORWARD(Scan);
             FORWARD(IndexScan);
             FORWARD(Choice);
-//            FORWARD(IndexChoice);
+            //            FORWARD(IndexChoice);
             FORWARD(Aggregate);
 
             // Statements
@@ -189,7 +189,7 @@ protected:
     LINK(Scan, RelationSearch);
     LINK(IndexScan, RelationSearch);
     LINK(Choice, RelationSearch);
-//    LINK(IndexChoice, RelationSearch);
+    //    LINK(IndexChoice, RelationSearch);
     LINK(RelationSearch, Search);
     LINK(Aggregate, Search);
     LINK(Search, NestedOperation);

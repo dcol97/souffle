@@ -487,9 +487,9 @@ void Interpreter::evalOp(const RamOperation& op, const InterpreterContext& args)
                 ctxt[choice.getIdentifier()] = cur;
                 // check condition
                 if (interpreter.evalCond(choice.getCondition(), ctxt)) {
-                     // process nested
-                     visitSearch(choice);
-                     break;
+                    // process nested
+                    visitSearch(choice);
+                    break;
                 }
             }
         }
