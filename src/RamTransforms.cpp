@@ -327,6 +327,7 @@ bool ConvertExistenceChecksTransformer::convertExistenceChecks(RamProgram& progr
             return modified;
         }
 
+		// similar to first getDepthFirst
         bool dependsOn(const RamExpression* value, const size_t identifier) const {
             std::vector<const RamExpression*> queue = {value};
             while (!queue.empty()) {
@@ -360,13 +361,14 @@ bool ConvertExistenceChecksTransformer::convertExistenceChecks(RamProgram& progr
             if (auto* scan = dynamic_cast<RamRelationSearch*>(node.get())) {
                 const size_t identifier = scan->getIdentifier();
                 bool isExistCheck = true;
-                visitDepthFirst(scan->getOperation(), [&](const RamProject& project) {
+                visitDepthFirst(scan->getOperation(), [&](const RamProject& project) { // look for all the things of this type (lambda)
                     if (isExistCheck) {
                         std::vector<const RamExpression*> values;
                         // TODO: function to extend vectors
-                        const std::vector<RamExpression*> initialVals = project.getValues();
+                        const std::vector<RamExpression*> initialVals = project.getValues(); // e.g. t0.a
                         values.insert(values.end(), initialVals.begin(), initialVals.end());
 
+						// element in the projection can be a record and so need to recurse
                         while (!values.empty()) {
                             const RamExpression* value = values.back();
                             values.pop_back();
@@ -440,10 +442,79 @@ bool ConvertExistenceChecksTransformer::convertExistenceChecks(RamProgram& progr
     // Node-mapper that searches for and updates RAM inserts
     class RamQueryCapturer : public RamNodeMapper {
         mutable bool modified;
-        ConvertExistenceChecksTransformer* context;
+        ConvertExistenceChecksTransformerNestedSearchIf* context;
 
     public:
         RamQueryCapturer(ConvertExistenceChecksTransformer* c) : modified(false), context(c) {}
+
+        bool getModified() const {
+            return modified;
+        }
+
+        std::unique_ptr<RamNode> operator()(std::unique_ptr<RamNode> node) const override {
+            // get all RAM inserts (RamQuery = RamInsert)
+            if (auto* insert = dynamic_cast<RamQuery*>(node.get())) {
+                RamScanCapturer scanUpdate(context);
+                insert->apply(scanUpdate);
+
+                if (scanUpdate.getModified()) {
+                    modified = true;
+                }
+            } else {
+                // no need to search for nested RAM inserts
+                node->apply(*this);
+            }
+            return node;
+        }
+    };
+
+    // level all RAM inserts
+    RamQueryCapturer insertUpdate(this);
+    program.getMain()->apply(insertUpdate);
+
+    return insertUpdate.getModified();
+}
+
+bool SearchesToChoicesTransformer::searchesToChoices(RamProgram& program) {
+	// Node mapper
+//    class RamSearchIfCapturer : public RamNodeMapper {
+//        mutable bool modified;
+//        ConvertExistenceChecksTransformer* context;
+
+	// 1) Find all such statements "SEARCH X ..." and subsequent if statement
+	// 2) check if not referred to
+	// 3) replacement with CHOICE
+	// RamElementAccess = t.x
+	// Expression = whole thing
+	// DFS from projection - store list of elements from tuples seen thus far, store element in previous level, then when reach SEARCH check if anywhere but previous level
+
+	class RamScanCapturer : public RamNodeMapper {
+        mutable bool modified = false;
+        SearchesToChoicesTransformer* context;
+
+    public:
+        RamScanCapturer(SearchesToChoicesTransformer* c) : modified(false), context(c) {}
+
+        bool getModified() const {
+            return modified;
+        }
+
+        std::unique_ptr<RamNode> operator()(std::unique_ptr<RamNode> node) const override {
+            if (auto* scan = dynamic_cast<RamRelationSearch*>(node.get())) { // if Scan/ScanIndex etc.
+
+			}
+            node->apply(*this);
+            return node;
+		}
+	};
+
+	// Node mapper
+    class RamQueryCapturer : public RamNodeMapper {
+        mutable bool modified = false;
+        SearchesToChoicesTransformer* context;
+
+    public:
+        RamQueryCapturer(SearchesToChoicesTransformer* c) : modified(false), context(c) {}
 
         bool getModified() const {
             return modified;
@@ -471,6 +542,7 @@ bool ConvertExistenceChecksTransformer::convertExistenceChecks(RamProgram& progr
     program.getMain()->apply(insertUpdate);
 
     return insertUpdate.getModified();
+
 }
 
 }  // end of namespace souffle

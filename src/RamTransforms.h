@@ -105,4 +105,35 @@ protected:
     }
 };
 
+/**
+ * Converts a search/if pair in the loop nest where the searched
+ * value is only used in the if statement (and thus multiple redundant
+ * computations may be performed) to a choice statement
+ */
+class SearchesToChoicesTransformer : public RamTransformer {
+public:
+    std::string getName() const override {
+        return "SearchesToChoicesTransformer";
+    }
+
+    /**
+     * @param program the program to be processed
+     * @return whether the program was modified
+     */
+    bool searchesToChoices(RamProgram& program);
+
+protected:
+    RamConstValueAnalysis* rcva{nullptr}; // is const
+    RamConditionLevelAnalysis* rcla{nullptr}; // which for-loop of a query getLevel
+    RamExpressionLevelAnalysis* rvla{nullptr}; // level of expression in loop nest
+	// user-defined vs intrinsic?
+
+    bool transform(RamTranslationUnit& translationUnit) override {
+        rcva = translationUnit.getAnalysis<RamConstValueAnalysis>();
+        rcla = translationUnit.getAnalysis<RamConditionLevelAnalysis>();
+        rvla = translationUnit.getAnalysis<RamExpressionLevelAnalysis>();
+        return searchesToChoices(*translationUnit.getProgram());
+    }
+};
+
 }  // end of namespace souffle
