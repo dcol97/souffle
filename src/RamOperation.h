@@ -47,7 +47,7 @@ public:
 };
 
 /**
- * Abstract class for parallel operation
+ * Abstract class for parallel operations
  */
 class RamAbstractParallel {};
 
